@@ -9,6 +9,25 @@ import {
 
 const router = Router();
 
+// ── Status mapping (Solidity enum index → string) ─────────────────────────────
+const STATUS_BY_INDEX: Record<string, LoanFilters["status"]> = {
+  "0": "CREATED",
+  "1": "FUNDED",
+  "2": "ACTIVE",
+  "3": "REPAID",
+  "4": "DEFAULTED",
+  "5": "CANCELLED",
+};
+
+const VALID_STATUSES = new Set(["CREATED", "FUNDED", "ACTIVE", "REPAID", "DEFAULTED", "CANCELLED"]);
+
+function parseStatus(raw: string): LoanFilters["status"] | null {
+  const upper = raw.toUpperCase();
+  if (VALID_STATUSES.has(upper)) return upper as LoanFilters["status"];
+  if (STATUS_BY_INDEX[raw]) return STATUS_BY_INDEX[raw];
+  return null;
+}
+
 // ── GET /api/loans ────────────────────────────────────────────────────────────
 
 router.get("/", async (req: Request, res: Response) => {
@@ -16,7 +35,12 @@ router.get("/", async (req: Request, res: Response) => {
     const filters: LoanFilters = {};
 
     if (req.query.status) {
-      filters.status = req.query.status as LoanFilters["status"];
+      const parsed = parseStatus(req.query.status as string);
+      if (!parsed) {
+        res.status(400).json({ error: `Invalid status. Use one of: CREATED, FUNDED, ACTIVE, REPAID, DEFAULTED, CANCELLED (or numeric 0–5)` });
+        return;
+      }
+      filters.status = parsed;
     }
     if (req.query.minAmount) {
       filters.minAmount = req.query.minAmount as string;
