@@ -1,0 +1,13 @@
+node_modules/
+dist/
+cache/
+artifacts/
+typechain-types/
+deployments/*.json
+coverage/
+coverage.json
+.env
+*.env.local
+
+# Hardhat
+.hardhat_store/

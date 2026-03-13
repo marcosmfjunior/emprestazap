@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LoanStatus {
+  CREATED
+  FUNDED
+  ACTIVE
+  REPAID
+  DEFAULTED
+  CANCELLED
+}
+
+model Loan {
+  id              String     @id @default(uuid())
+  contractAddress String     @unique
+  lender          String
+  borrower        String?
+  /// BRZ amount in wei (18 decimals), stored as string to avoid Decimal precision issues
+  principal       String
+  annualRateBps   Int
+  termMonths      Int
+  /// Total repayment amount in wei
+  totalOwed       String
+  feeBps          Int
+  status          LoanStatus @default(CREATED)
+
+  fundedAt    DateTime?
+  activatedAt DateTime?
+  dueDate     DateTime?
+  repaidAt    DateTime?
+  defaultedAt DateTime?
+
+  /// Transaction hash of the event that last updated this record
+  txHash    String?
+  /// Last block number processed for this loan
+  lastBlock BigInt?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lender])
+  @@index([borrower])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model IndexerState {
+  id           String @id @default("singleton")
+  lastBlock    BigInt @default(0)
+  updatedAt    DateTime @updatedAt
+}

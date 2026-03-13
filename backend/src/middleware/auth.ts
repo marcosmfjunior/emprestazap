@@ -1,0 +1,85 @@
+import { Request, Response, NextFunction } from "express";
+import { PrivyClient } from "@privy-io/server-auth";
+import { env } from "../config/env";
+
+// Extend Express Request to carry the authenticated wallet address
+declare global {
+  namespace Express {
+    interface Request {
+      walletAddress?: string;
+      privyClaims?: Record<string, unknown>;
+    }
+  }
+}
+
+let _privy: PrivyClient | null = null;
+
+function getPrivy(): PrivyClient {
+  if (!_privy) {
+    if (!env.PRIVY_APP_ID || !env.PRIVY_APP_SECRET) {
+      throw new Error("PRIVY_APP_ID and PRIVY_APP_SECRET must be set");
+    }
+    _privy = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
+  }
+  return _privy;
+}
+
+/**
+ * Middleware that validates a Privy JWT from the Authorization header.
+ * Extracts the user's embedded wallet address and attaches it to req.walletAddress.
+ */
+export async function authMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Missing or malformed Authorization header" });
+    return;
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  try {
+    const privy = getPrivy();
+    const claims = await privy.verifyAuthToken(token);
+
+    // Extract the user's linked wallet address.
+    // Privy stores the wallet in claims.linkedAccounts or as userId for embedded wallets.
+    // The exact structure depends on Privy version — adjust if needed.
+    const walletAddress =
+      (claims as unknown as { linkedAccounts?: Array<{ address?: string; type?: string }> })
+        .linkedAccounts
+        ?.find((a) => a.type === "wallet")?.address ??
+      (claims as unknown as { walletAddress?: string }).walletAddress;
+
+    req.walletAddress = walletAddress;
+    req.privyClaims = claims as unknown as Record<string, unknown>;
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid or expired auth token" });
+  }
+}
+
+/**
+ * Asserts that req.walletAddress matches the :address route param.
+ * Prevents users from querying or acting on behalf of others.
+ */
+export function requireSelfOrAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  const rawParam = req.params.walletAddress;
+  const targetAddress = Array.isArray(rawParam)
+    ? rawParam[0]?.toLowerCase()
+    : rawParam?.toLowerCase();
+  const callerAddress = req.walletAddress?.toLowerCase();
+
+  if (!callerAddress || callerAddress !== targetAddress) {
+    res.status(403).json({ error: "Forbidden: cannot act on behalf of another user" });
+    return;
+  }
+  next();
+}
