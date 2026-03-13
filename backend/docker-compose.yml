@@ -7,15 +7,15 @@ services:
     container_name: emprestazap_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: p2plending
-      POSTGRES_USER: p2puser
-      POSTGRES_PASSWORD: p2ppassword
+      POSTGRES_DB: ${POSTGRES_DB:-p2plending}
+      POSTGRES_USER: ${POSTGRES_USER:-p2puser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-p2ppassword}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U p2puser -d p2plending"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-p2puser} -d ${POSTGRES_DB:-p2plending}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +33,6 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://p2puser:p2ppassword@postgres:5432/p2plending
       NODE_ENV: production
     ports:
       - "3000:3000"
