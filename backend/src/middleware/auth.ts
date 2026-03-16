@@ -45,14 +45,10 @@ export async function authMiddleware(
     const privy = getPrivy();
     const claims = await privy.verifyAuthToken(token);
 
-    // Extract the user's linked wallet address.
-    // Privy stores the wallet in claims.linkedAccounts or as userId for embedded wallets.
-    // The exact structure depends on Privy version — adjust if needed.
-    const walletAddress =
-      (claims as unknown as { linkedAccounts?: Array<{ address?: string; type?: string }> })
-        .linkedAccounts
-        ?.find((a) => a.type === "wallet")?.address ??
-      (claims as unknown as { walletAddress?: string }).walletAddress;
+    // verifyAuthToken returns only { userId, appId, issuer, ... }.
+    // We need to fetch the full user profile to get the wallet address.
+    const user = await privy.getUser(claims.userId);
+    const walletAddress = user.wallet?.address;
 
     req.walletAddress = walletAddress;
     req.privyClaims = claims as unknown as Record<string, unknown>;
