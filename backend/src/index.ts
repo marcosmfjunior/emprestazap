@@ -9,6 +9,7 @@ import { Indexer } from "./services/indexer";
 import loansRouter from "./routes/loans";
 import usersRouter from "./routes/users";
 import rampRouter from "./routes/ramp";
+import webhookRouter from "./routes/webhook";
 
 // ── Express setup ─────────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/loans", loansRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/ramp", rampRouter);
+app.use("/api/ramp/webhook", webhookRouter);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────
 

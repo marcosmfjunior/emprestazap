@@ -8,9 +8,11 @@ datasource db {
 }
 
 enum LoanStatus {
+  PENDING_PAYMENT
   CREATED
   FUNDED
   ACTIVE
+  DISBURSED
   REPAID
   DEFAULTED
   CANCELLED
@@ -18,23 +20,35 @@ enum LoanStatus {
 
 model Loan {
   id              String     @id @default(uuid())
-  contractAddress String     @unique
+  contractAddress String?    @unique
   lender          String
   borrower        String?
-  /// BRZ amount in wei (18 decimals), stored as string to avoid Decimal precision issues
+  /// BRZ amount in wei (4 decimals for BRZ), stored as string
   principal       String
   annualRateBps   Int
   termMonths      Int
   /// Total repayment amount in wei
   totalOwed       String
   feeBps          Int
-  status          LoanStatus @default(CREATED)
+  status          LoanStatus @default(PENDING_PAYMENT)
+
+  /// Email-based fields for PIX flow
+  lenderEmail     String?
+  borrowerEmail   String?
+
+  /// PIX / Transfero transaction IDs
+  pixDepositId    String?
+  pixRepayId      String?
+
+  /// BRL amount at time of creation
+  principalBrl    Float?
 
   fundedAt    DateTime?
   activatedAt DateTime?
   dueDate     DateTime?
   repaidAt    DateTime?
   defaultedAt DateTime?
+  disbursedAt DateTime?
 
   /// Transaction hash of the event that last updated this record
   txHash    String?
@@ -48,6 +62,18 @@ model Loan {
   @@index([borrower])
   @@index([status])
   @@index([dueDate])
+  @@index([lenderEmail])
+  @@index([borrowerEmail])
+}
+
+model User {
+  id            String   @id @default(uuid())
+  privyId       String   @unique
+  email         String?  @unique
+  walletAddress String?  @unique
+  pixKey        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model IndexerState {

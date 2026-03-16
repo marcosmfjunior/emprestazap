@@ -27,6 +27,16 @@ export const env = {
   TRANSFERO_API_KEY: process.env.TRANSFERO_API_KEY ?? "",
   TRANSFERO_API_URL:
     process.env.TRANSFERO_API_URL ?? "https://api.transfero.com/v1",
+  TRANSFERO_WEBHOOK_SECRET: process.env.TRANSFERO_WEBHOOK_SECRET ?? "",
+
+  // Platform wallets (custodial — backend signs all on-chain txns)
+  PLATFORM_LENDER_PRIVATE_KEY: process.env.PLATFORM_LENDER_PRIVATE_KEY ?? "",
+  PLATFORM_BORROWER_PRIVATE_KEY: process.env.PLATFORM_BORROWER_PRIVATE_KEY ?? "",
+
+  // Email
+  RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
+  EMAIL_FROM: process.env.EMAIL_FROM ?? "EmprestáZap <no-reply@emprestazap.com.br>",
+  APP_URL: process.env.APP_URL ?? "https://empresta-zap.lovable.app",
 
   // App
   PORT: parseInt(process.env.PORT ?? "3000", 10),

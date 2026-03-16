@@ -2,11 +2,13 @@ import { Request, Response, NextFunction } from "express";
 import { PrivyClient } from "@privy-io/server-auth";
 import { env } from "../config/env";
 
-// Extend Express Request to carry the authenticated wallet address
+// Extend Express Request to carry the authenticated user info
 declare global {
   namespace Express {
     interface Request {
       walletAddress?: string;
+      privyUserId?: string;
+      privyEmail?: string;
       privyClaims?: Record<string, unknown>;
     }
   }
@@ -49,8 +51,11 @@ export async function authMiddleware(
     // We need to fetch the full user profile to get the wallet address.
     const user = await privy.getUser(claims.userId);
     const walletAddress = user.wallet?.address;
+    const email = user.email?.address;
 
     req.walletAddress = walletAddress;
+    req.privyUserId = claims.userId;
+    req.privyEmail = email;
     req.privyClaims = claims as unknown as Record<string, unknown>;
     next();
   } catch {

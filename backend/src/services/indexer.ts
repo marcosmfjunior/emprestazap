@@ -256,7 +256,7 @@ export class Indexer {
     });
 
     for (const { contractAddress } of activeLoans) {
-      this.watchLoan(contractAddress);
+      if (contractAddress) this.watchLoan(contractAddress);
     }
   }
 

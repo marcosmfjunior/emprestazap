@@ -9,11 +9,11 @@ import { BULLET_LOAN_ABI, ERC20_ABI, getProvider } from "../config/blockchain";
 import { env } from "../config/env";
 
 // ── Prisma types (generated after `prisma generate`) ─────────────────────────
-type LoanStatus = "CREATED" | "FUNDED" | "ACTIVE" | "REPAID" | "DEFAULTED" | "CANCELLED";
+type LoanStatus = "PENDING_PAYMENT" | "CREATED" | "FUNDED" | "ACTIVE" | "DISBURSED" | "REPAID" | "DEFAULTED" | "CANCELLED";
 
 interface Loan {
   id: string;
-  contractAddress: string;
+  contractAddress: string | null;
   lender: string;
   borrower: string | null;
   principal: string;
@@ -27,6 +27,12 @@ interface Loan {
   dueDate: Date | null;
   repaidAt: Date | null;
   defaultedAt: Date | null;
+  lenderEmail: string | null;
+  borrowerEmail: string | null;
+  pixDepositId: string | null;
+  pixRepayId: string | null;
+  principalBrl: number | null;
+  disbursedAt: Date | null;
   txHash: string | null;
   lastBlock: bigint | null;
   createdAt: Date;
@@ -137,6 +143,14 @@ export async function getLoanByAddress(
   contractAddress: string,
 ): Promise<LoanDetail | null> {
   const loan = await prisma.loan.findUnique({ where: { contractAddress } });
+  if (!loan) return null;
+  return enrichLoan(loan);
+}
+
+export async function getLoanById(
+  id: string,
+): Promise<LoanDetail | null> {
+  const loan = await prisma.loan.findUnique({ where: { id } });
   if (!loan) return null;
   return enrichLoan(loan);
 }

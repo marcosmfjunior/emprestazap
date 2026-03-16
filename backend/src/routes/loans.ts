@@ -4,10 +4,21 @@ import {
   getLoans,
   getAvailableLoans,
   getLoanByAddress,
+  getLoanById,
   LoanFilters,
 } from "../services/loanService";
+import { authMiddleware } from "../middleware/auth";
+import {
+  createLoanProposal,
+  disburseToBorrower,
+  initRepayment,
+} from "../services/loanFlowService";
 
 const router = Router();
+
+function param(val: string | string[] | undefined): string {
+  return Array.isArray(val) ? val[0] : val ?? "";
+}
 
 // ── Status mapping (Solidity enum index → string) ─────────────────────────────
 const STATUS_BY_INDEX: Record<string, LoanFilters["status"]> = {
@@ -19,7 +30,7 @@ const STATUS_BY_INDEX: Record<string, LoanFilters["status"]> = {
   "5": "CANCELLED",
 };
 
-const VALID_STATUSES = new Set(["CREATED", "FUNDED", "ACTIVE", "REPAID", "DEFAULTED", "CANCELLED"]);
+const VALID_STATUSES = new Set(["PENDING_PAYMENT", "CREATED", "FUNDED", "ACTIVE", "DISBURSED", "REPAID", "DEFAULTED", "CANCELLED"]);
 
 function parseStatus(raw: string): LoanFilters["status"] | null {
   const upper = raw.toUpperCase();
@@ -104,6 +115,117 @@ router.get("/:address", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("GET /loans/:address error:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /api/loans (create loan proposal — auth required) ──────────────────
+
+router.post("/", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { borrowerEmail, principalBrl, annualRateBps, termMonths } = req.body as {
+      borrowerEmail?: string;
+      principalBrl?: number;
+      annualRateBps?: number;
+      termMonths?: number;
+    };
+
+    if (!borrowerEmail || !principalBrl || !annualRateBps || !termMonths) {
+      res.status(400).json({
+        error: "Required: borrowerEmail, principalBrl, annualRateBps, termMonths",
+      });
+      return;
+    }
+
+    if (principalBrl <= 0 || annualRateBps <= 0 || termMonths <= 0) {
+      res.status(400).json({ error: "All numeric values must be positive" });
+      return;
+    }
+
+    const lenderEmail = req.privyEmail;
+    if (!lenderEmail) {
+      res.status(400).json({ error: "Lender email not found in auth profile" });
+      return;
+    }
+
+    const result = await createLoanProposal({
+      lenderEmail,
+      borrowerEmail,
+      principalBrl,
+      annualRateBps,
+      termMonths,
+    });
+
+    res.status(201).json(result);
+  } catch (err: any) {
+    console.error("POST /loans error:", err);
+    res.status(500).json({ error: err.message ?? "Internal server error" });
+  }
+});
+
+// ── GET /api/loans/id/:id (lookup by UUID) ──────────────────────────────────
+
+router.get("/id/:id", async (req: Request, res: Response) => {
+  try {
+    const loan = await getLoanById(param(req.params.id));
+    if (!loan) {
+      res.status(404).json({ error: "Loan not found" });
+      return;
+    }
+    res.json(loan);
+  } catch (err) {
+    console.error("GET /loans/id/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /api/loans/:id/disburse (borrower requests PIX withdrawal) ─────────
+
+router.post("/:id/disburse", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { pixKey } = req.body as { pixKey?: string };
+    if (!pixKey || pixKey.trim().length === 0) {
+      res.status(400).json({ error: "pixKey is required" });
+      return;
+    }
+
+    // Verify caller is the borrower
+    const loan = await getLoanById(param(req.params.id));
+    if (!loan) {
+      res.status(404).json({ error: "Loan not found" });
+      return;
+    }
+    if (loan.borrowerEmail !== req.privyEmail) {
+      res.status(403).json({ error: "Only the borrower can disburse this loan" });
+      return;
+    }
+
+    const result = await disburseToBorrower(param(req.params.id), pixKey.trim());
+    res.json(result);
+  } catch (err: any) {
+    console.error("POST /loans/:id/disburse error:", err);
+    res.status(500).json({ error: err.message ?? "Internal server error" });
+  }
+});
+
+// ── POST /api/loans/:id/repay-init (borrower gets PIX QR to repay) ──────────
+
+router.post("/:id/repay-init", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const loan = await getLoanById(param(req.params.id));
+    if (!loan) {
+      res.status(404).json({ error: "Loan not found" });
+      return;
+    }
+    if (loan.borrowerEmail !== req.privyEmail) {
+      res.status(403).json({ error: "Only the borrower can initiate repayment" });
+      return;
+    }
+
+    const result = await initRepayment(param(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    console.error("POST /loans/:id/repay-init error:", err);
+    res.status(500).json({ error: err.message ?? "Internal server error" });
   }
 });
 

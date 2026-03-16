@@ -54,6 +54,22 @@ export const BULLET_LOAN_ABI = [
 export const ERC20_ABI = [
   "function balanceOf(address account) external view returns (uint256)",
   "function decimals() external view returns (uint8)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function transfer(address to, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+] as const;
+
+// ── Write ABIs (for platform wallet transactions) ────────────────────────────
+
+export const LOAN_FACTORY_WRITE_ABI = [
+  "function createLoan(uint256 _principal, uint256 _annualRateBps, uint256 _termMonths) external returns (address loanAddress)",
+  "function brzToken() external view returns (address)",
+] as const;
+
+export const BULLET_LOAN_WRITE_ABI = [
+  "function drawdown() external",
+  "function repay() external",
+  "function cancelLoan() external",
 ] as const;
 
 // ── Status enum mapping ───────────────────────────────────────────────────────
